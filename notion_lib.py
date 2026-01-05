@@ -74,3 +74,30 @@ class NotionManager:
             raise Exception(f"Errore Task '{title}': {res.text}")
         
         return True
+    
+    def get_all_areas(self):
+        """Scarica la lista delle Aree (Titoli) dal database"""
+        payload = { 
+            "page_size": 100,
+            # Opzionale: filtra solo le aree attive se vuoi
+            # "filter": { "property": "Status", "status": { "equals": "Active" } } 
+        }
+        
+        try:
+            res = requests.post(f"{self.api_url}/databases/{DB_CONFIG['AREAS']}/query", headers=self.headers, json=payload)
+            if res.status_code != 200:
+                return []
+            
+            areas = []
+            for page in res.json()['results']:
+                props = page['properties']
+                # Estrazione dinamica del titolo (qualsiasi nome abbia la colonna)
+                for key, val in props.items():
+                    if val['type'] == 'title' and val['title']:
+                        title = val['title'][0]['plain_text']
+                        areas.append(title)
+                        break
+            
+            return sorted(areas) # Ordine alfabetico
+        except:
+            return []
