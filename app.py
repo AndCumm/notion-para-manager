@@ -1,4 +1,3 @@
-# app.py
 import streamlit as st
 import json
 import time
@@ -8,28 +7,54 @@ from notion_lib import NotionManager
 st.set_page_config(page_title="Notion Deployer", page_icon="🚀")
 st.title("🚀 PARA Project Deployer")
 
-# Sidebar per le credenziali
+# --- FUNZIONI DI CACHING ---
+# Cache: Scarica le aree solo una volta ogni 10 minuti o se cambia il token
+@st.cache_data(ttl=600)
+def fetch_areas_cached(token):
+    if not token: return []
+    try:
+        manager = NotionManager(token)
+        return manager.get_all_areas()
+    except:
+        return []
+
+# --- SIDEBAR & CONFIGURAZIONE ---
 with st.sidebar:
     st.header("Configurazione")
-    token = st.text_input("Notion Token", type="password", help="Incolla qui il secret_...")
-    area_target = st.text_input("Nome Area (Opzionale)", value="Health and Fitness")
+    
+    # 1. Input Token
+    token = st.text_input("Notion Token", type="password", help="secret_...")
+    
+    # 2. Fetch Aree Dinamico
+    area_options = []
+    if token and len(token) > 40: # Check base per non chiamare API a vuoto
+        area_options = fetch_areas_cached(token)
+    
+    # 3. Menu a Tendina (Multiselezione resa come Selectbox singola per coerenza PARA)
+    # Se vuoi davvero selezionarne più di una, usa st.multiselect invece di st.selectbox
+    if area_options:
+        area_target = st.selectbox("Seleziona Area di Appartenenza", options=area_options)
+    else:
+        # Fallback se non c'è token o errore
+        area_target = st.text_input("Nome Area (Manuale)", value="Health and Fitness")
+        if token: st.warning("⚠️ Impossibile caricare le aree. Controlla il Token.")
 
-# Input dati progetto
+# --- INTERFACCIA PRINCIPALE ---
 st.subheader("Blueprint Progetto")
 
-# Esempio di struttura JSON per aiutare l'utente
+# Esempio JSON pulito (senza Epic hardcodate, come richiesto)
 example_json = [
     {
-        "title": "Nuovo Progetto Esempio",
+        "title": "Nuovo Progetto",
         "tasks": [
-            {"title": "1.1 Setup Iniziale", "epic": "1. Connectivity"},
-            {"title": "2.1 Database", "epic": "2. Backend"}
+            {"title": "1.1 Ricerca iniziale", "epic": "1. Discovery"},
+            {"title": "2.1 Sviluppo MVP", "epic": "2. Build"}
         ]
     }
 ]
 
 json_input = st.text_area(
-    "Incolla qui il JSON del progetto", 
+    "Incolla qui il JSON", 
     height=300, 
     value=json.dumps(example_json, indent=2)
 )
@@ -55,9 +80,9 @@ if st.button("Lancia Deploy", type="primary"):
                 p_title = project['title']
                 status_text.text(f"🏗️ Creazione Progetto: {p_title}...")
                 
-                # Crea Progetto
+                # Crea Progetto usando l'Area selezionata dal menu
                 proj_id = manager.create_project(p_title, area_name=area_target)
-                st.success(f"✅ Progetto creato: **{p_title}**")
+                st.success(f"✅ Progetto creato: **{p_title}** in *{area_target}*")
                 
                 current_op += 1
                 progress_bar.progress(current_op / total_ops)
@@ -74,12 +99,15 @@ if st.button("Lancia Deploy", type="primary"):
                     
                     current_op += 1
                     progress_bar.progress(current_op / total_ops)
-                    time.sleep(0.1) # Rispetto API rate limit
+                    time.sleep(0.1) 
 
             status_text.text("✨ Deploy Completato!")
             st.balloons()
+            
+            # Pulisce la cache per forzare un refresh al prossimo giro (opzionale)
+            st.cache_data.clear()
 
         except json.JSONDecodeError:
-            st.error("❌ Il JSON non è valido. Controlla le virgole e le parentesi.")
+            st.error("❌ JSON non valido.")
         except Exception as e:
-            st.error(f"❌ Errore durante il deploy: {str(e)}")
+            st.error(f"❌ Errore: {str(e)}")
