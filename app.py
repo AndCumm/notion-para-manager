@@ -37,26 +37,26 @@ with st.sidebar:
         manual_area = st.text_input("Nome Area (Manuale)")
         area_targets = [manual_area] if manual_area else []
 
-# --- AI PROMPT HELPER (Novità!) ---
-with st.expander("🤖 Genera JSON con AI (Copia questo Prompt)"):
+# --- AI PROMPT HELPER (AGGIORNATO: FORMATTAZIONE FINALE) ---
+with st.expander("🤖 Prompt Finale (Da usare a fine chat)"):
     st.markdown("""
-    Copia questo testo e invialo a Gemini/ChatGPT per generare il JSON:
+    Dopo aver definito Progetto, Epic e Task in chat, incolla questo comando per ottenere il JSON:
     
     ```text
-    Devo inserire un nuovo progetto nel mio sistema Notion.
-    Il progetto è: [DESCRIVI QUI LA TUA IDEA]
+    Perfetto. Ora prendi la struttura definita sopra (Progetto, Epics e Tasks relativi) e trasformala nel JSON per il mio Deployer.
     
-    Le Epic disponibili sono:
-    1. Connectivity, 2. Backend, 3. Bridge, 4. SPoV, 
-    5. Insights, 6. Engineering, 7. Security.
+    Regole:
+    1. Mantieni rigorosamente la numerazione gerarchica decisa (es. "1.1 Task").
+    2. Usa esattamente le Epic che abbiamo definito.
+    3. Usa questa struttura JSON esatta:
     
-    Generami il codice JSON valido da incollare nel tool, usando questa struttura:
     [
       {
         "title": "Nome Progetto",
         "tasks": [
-          { "title": "1.1 Nome Task", "epic": "1. Connectivity" },
-          { "title": "7.1 Nome Task", "epic": "7. Security" }
+          { "title": "1.1 Nome Task", "epic": "1. Nome Epic" },
+          { "title": "1.2 Nome Task", "epic": "1. Nome Epic" },
+          { "title": "2.1 Nome Task", "epic": "2. Altra Epic" }
         ]
       }
     ]
@@ -66,14 +66,13 @@ with st.expander("🤖 Genera JSON con AI (Copia questo Prompt)"):
 # --- INTERFACCIA PRINCIPALE ---
 st.subheader("Blueprint Progetto")
 
-# Esempio JSON "Parlante"
+# Esempio JSON generico
 example_json = [
     {
-        "title": "🛠️ Refactoring Home Network",
+        "title": "Progetto Esempio",
         "tasks": [
-            {"title": "1.1 Configurazione VLAN IoT", "epic": "1. Connectivity"},
-            {"title": "6.1 Setup Monitoring Grafana", "epic": "6. Engineering"},
-            {"title": "7.1 Rotazione password Wifi", "epic": "7. Security"}
+            {"title": "1.1 Primo Task", "epic": "1. Fase Uno"},
+            {"title": "2.1 Secondo Task", "epic": "2. Fase Due"}
         ]
     }
 ]
@@ -131,6 +130,6 @@ if st.button("Lancia Deploy", type="primary"):
             st.cache_data.clear()
 
         except json.JSONDecodeError:
-            st.error("❌ JSON non valido.")
+            st.error("❌ JSON non valido. Controlla virgole e parentesi.")
         except Exception as e:
             st.error(f"❌ Errore: {str(e)}")
