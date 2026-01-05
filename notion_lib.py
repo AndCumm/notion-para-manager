@@ -27,20 +27,32 @@ class NotionManager:
             return data['results'][0]['id']
         return None
 
-    def create_project(self, title, area_name=None, status="Active"):
-        """Crea il progetto e lo collega all'Area se specificata"""
+    def create_project(self, title, area_names=[], status="Active"):
+        """Crea il progetto e lo collega a una o più Aree"""
+        # Assicuriamoci che sia sempre una lista
+        if isinstance(area_names, str):
+            area_names = [area_names]
+            
         props = {
             COLUMNS["PROJECT_TITLE"]: { "title": [{ "text": { "content": title } }] },
             "Status": { "select": { "name": status } }
         }
 
-        # Se c'è un'Area, cerchiamo l'ID e colleghiamo
-        if area_name:
-            area_id = self._find_page_id(DB_CONFIG["AREAS"], "Area Name", area_name)
-            if area_id:
-                props[COLUMNS["RELATION_PROJ_AREA"]] = { "relation": [{ "id": area_id }] }
-            else:
-                print(f"⚠️ Area '{area_name}' non trovata. Creo progetto orfano.")
+        # Gestione Multi-Area
+        relation_ids = []
+        if area_names:
+            for name in area_names:
+                if not name: continue
+                # Cerco l'ID per ogni nome nella lista
+                found_id = self._find_page_id(DB_CONFIG["AREAS"], "Area Name", name)
+                if found_id:
+                    relation_ids.append({ "id": found_id })
+                else:
+                    print(f"⚠️ Area '{name}' non trovata.")
+
+        # Se abbiamo trovato almeno un'area valida, aggiungiamo la relazione
+        if relation_ids:
+            props[COLUMNS["RELATION_PROJ_AREA"]] = { "relation": relation_ids }
 
         payload = {
             "parent": { "database_id": DB_CONFIG["PROJECTS"] },
@@ -52,6 +64,7 @@ class NotionManager:
             raise Exception(f"Errore creazione Progetto: {res.text}")
         
         return res.json()['id']
+
 
     def create_task(self, title, epic, project_id):
         """Crea un task collegato al progetto e con l'Epic settata"""
