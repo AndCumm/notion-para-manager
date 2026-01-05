@@ -8,7 +8,6 @@ st.set_page_config(page_title="Notion Deployer", page_icon="🚀")
 st.title("🚀 PARA Project Deployer")
 
 # --- FUNZIONI DI CACHING ---
-# Cache: Scarica le aree solo una volta ogni 10 minuti o se cambia il token
 @st.cache_data(ttl=600)
 def fetch_areas_cached(token):
     if not token: return []
@@ -27,30 +26,54 @@ with st.sidebar:
     
     # 2. Fetch Aree Dinamico
     area_options = []
-    if token and len(token) > 40: # Check base per non chiamare API a vuoto
+    if token and len(token) > 40: 
         area_options = fetch_areas_cached(token)
     
-    # 3. Menu a Tendina (Multiselezione resa come Selectbox singola per coerenza PARA)
-        # 3. Menu a Tendina MULTIPLO
+    # 3. Menu a Tendina MULTIPLO
     if area_options:
-        # Restituisce una LISTA di stringhe, es: ['Health', 'Coding']
         area_targets = st.multiselect("Seleziona Aree di Appartenenza", options=area_options)
     else:
-        # Fallback manuale (input testo separato da virgola se serve, o singolo)
+        # Fallback manuale
         manual_area = st.text_input("Nome Area (Manuale)")
         area_targets = [manual_area] if manual_area else []
 
+# --- AI PROMPT HELPER (Novità!) ---
+with st.expander("🤖 Genera JSON con AI (Copia questo Prompt)"):
+    st.markdown("""
+    Copia questo testo e invialo a Gemini/ChatGPT per generare il JSON:
+    
+    ```text
+    Devo inserire un nuovo progetto nel mio sistema Notion.
+    Il progetto è: [DESCRIVI QUI LA TUA IDEA]
+    
+    Le Epic disponibili sono:
+    1. Connectivity, 2. Backend, 3. Bridge, 4. SPoV, 
+    5. Insights, 6. Engineering, 7. Security.
+    
+    Generami il codice JSON valido da incollare nel tool, usando questa struttura:
+    [
+      {
+        "title": "Nome Progetto",
+        "tasks": [
+          { "title": "1.1 Nome Task", "epic": "1. Connectivity" },
+          { "title": "7.1 Nome Task", "epic": "7. Security" }
+        ]
+      }
+    ]
+    ```
+    """)
 
 # --- INTERFACCIA PRINCIPALE ---
 st.subheader("Blueprint Progetto")
 
-# Esempio JSON pulito (senza Epic hardcodate, come richiesto)
+# Esempio JSON "Parlante"
 example_json = [
     {
-        "title": "Nuovo Progetto",
+        "title": "🛠️ Refactoring Home Network",
         "tasks": [
-            {"title": "1.1 Ricerca iniziale", "epic": "1. Discovery"},
-            {"title": "2.1 Sviluppo MVP", "epic": "2. Build"}
+            {"title": "1.1 Configurazione VLAN IoT", "epic": "1. Connectivity"},
+            {"title": "6.1 Setup Monitoring Grafana", "epic": "6. Engineering"},
+            {"title": "7.1 Rotazione password Wifi", "epic": "7. Security"}
         ]
     }
 ]
@@ -82,10 +105,9 @@ if st.button("Lancia Deploy", type="primary"):
                 p_title = project['title']
                 status_text.text(f"🏗️ Creazione Progetto: {p_title}...")
                 
-                # Crea Progetto passando la LISTA di aree
+                # Crea Progetto (supporta lista aree)
                 proj_id = manager.create_project(p_title, area_names=area_targets)
                 st.success(f"✅ Progetto creato: **{p_title}** -> {area_targets}")
-
                 
                 current_op += 1
                 progress_bar.progress(current_op / total_ops)
@@ -106,8 +128,6 @@ if st.button("Lancia Deploy", type="primary"):
 
             status_text.text("✨ Deploy Completato!")
             st.balloons()
-            
-            # Pulisce la cache per forzare un refresh al prossimo giro (opzionale)
             st.cache_data.clear()
 
         except json.JSONDecodeError:
