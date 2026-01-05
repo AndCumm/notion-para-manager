@@ -31,13 +31,15 @@ with st.sidebar:
         area_options = fetch_areas_cached(token)
     
     # 3. Menu a Tendina (Multiselezione resa come Selectbox singola per coerenza PARA)
-    # Se vuoi davvero selezionarne più di una, usa st.multiselect invece di st.selectbox
+        # 3. Menu a Tendina MULTIPLO
     if area_options:
-        area_target = st.selectbox("Seleziona Area di Appartenenza", options=area_options)
+        # Restituisce una LISTA di stringhe, es: ['Health', 'Coding']
+        area_targets = st.multiselect("Seleziona Aree di Appartenenza", options=area_options)
     else:
-        # Fallback se non c'è token o errore
-        area_target = st.text_input("Nome Area (Manuale)", value="Health and Fitness")
-        if token: st.warning("⚠️ Impossibile caricare le aree. Controlla il Token.")
+        # Fallback manuale (input testo separato da virgola se serve, o singolo)
+        manual_area = st.text_input("Nome Area (Manuale)")
+        area_targets = [manual_area] if manual_area else []
+
 
 # --- INTERFACCIA PRINCIPALE ---
 st.subheader("Blueprint Progetto")
@@ -80,9 +82,10 @@ if st.button("Lancia Deploy", type="primary"):
                 p_title = project['title']
                 status_text.text(f"🏗️ Creazione Progetto: {p_title}...")
                 
-                # Crea Progetto usando l'Area selezionata dal menu
-                proj_id = manager.create_project(p_title, area_name=area_target)
-                st.success(f"✅ Progetto creato: **{p_title}** in *{area_target}*")
+                # Crea Progetto passando la LISTA di aree
+                proj_id = manager.create_project(p_title, area_names=area_targets)
+                st.success(f"✅ Progetto creato: **{p_title}** -> {area_targets}")
+
                 
                 current_op += 1
                 progress_bar.progress(current_op / total_ops)
