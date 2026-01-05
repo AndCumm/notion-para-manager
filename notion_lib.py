@@ -12,28 +12,104 @@ class NotionManager:
         }
         self.api_url = "https://api.notion.com/v1"
 
-    def _find_page_id(self, database_id, property_name, value):
+    def get_all_areas(self):
+        payload = {"page_size": 100}
+        try:
+            url = f"{self.api_url}/databases/{DB_CONFIG['AREAS']}/query"
+            res = requests.post(url, headers=self.headers, json=payload)
+            if res.status_code != 200:
+                return []
+            
+            areas = []
+            for page in res.json()['results']:
+                props = page['properties']
+                for key, val in props.items():
+                    if val['type'] == 'title' and val['title']:
+                        title = val['title'][0]['plain_text']
+                        areas.append(title)
+                        break
+            return sorted(areas)
+        except:
+            return []
+
+    def create_project(self, title, area_names=[], status="Active", description=None):
+        if isinstance(area_names, str):
+            area_names = [area_names]
+            
+        props = {
+            COLUMNS["PROJECT_TITLE"]: {"title": [{"text": {"content": title}}]},
+            "Status": {"select": {"name": status}}
+        }
+
+        relation_ids = []
+        if area_names:
+            url = f"{self.api_url}/databases/{DB_CONFIG['AREAS']}/query"
+            res = requests.post(url, headers=self.headers, json={})
+            if res.status_code == 200:
+                for page in res.json()['results']:
+                    p_title = ""
+                    for k, v in page['properties'].items():
+                        if v['type'] == 'title' and v['title']:
+                            p_title = v['title'][0]['plain_text']
+                            break
+                    if p_title in area_names:
+                        relation_ids.append({"id": page['id']})
+
+        if relation_ids:
+            props[COLUMNS["RELATION_PROJ_AREA"]] = {"relation": relation_ids}
+
         payload = {
-            "filter": {
-                "property": property_name,
-                "title": { "equals": value } if property_name == "Name" or property_name == "Task Name" or property_name == "Project Name" else { "equals": value } # Adattamento generico per Text/Title
-            }
+            "parent": {"database_id": DB_CONFIG["PROJECTS"]},
+            "properties": props
         }
-        # Special case per Title che varia spesso, usiamo query generica se serve, 
-        # ma per le Aree (che sono il caso d'uso qui) di solito è "Name" o simile.
-        # Per sicurezza sulle Aree usiamo un approccio più semplice nel create_project
         
-        # Riscriviamo _find_page_id per essere specifico per le Aree (select/title/text)
-        # Ma per le Aree usiamo la logica di get_all_areas per i nomi. 
-        # Qui serve per trovare l'ID dato il nome.
+        if description:
+            payload["children"] = [
+                {
+                    "object": "block",
+                    "type": "paragraph",
+                    "paragraph": {
+                        "rich_text": [{"type": "text", "text": {"content": description}}]
+                    }
+                }
+            ]
         
-        query = {
-            "filter": {
-                "property": "Area Name", # Assumiamo che la colonna si chiami così o simile, adattare se serve
-                "rich_text": { "equals": value } # O title, o select
-            }
+        res = requests.post(f"{self.api_url}/pages", headers=self.headers, json=payload)
+        if res.status_code != 200:
+            raise Exception(f"Errore Project: {res.text}")
+        
+        return res.json()['id']
+
+    def create_task(self, title, epic, project_id, description=None):
+        props = {
+            COLUMNS["TASK_TITLE"]: {"title": [{"text": {"content": title}}]},
+            COLUMNS["RELATION_TASK_PROJ"]: {"relation": [{"id": project_id}]}
         }
-        # Nota: La ricerca esatta in Notion dipende dal tipo di proprietà.
+        
+        if epic:
+            props[COLUMNS["EPIC_SELECT"]] = {"select": {"name": epic}}
+
+        payload = {
+            "parent": {"database_id": DB_CONFIG["TASKS"]},
+            "properties": props
+        }
+
+        if description:
+            payload["children"] = [
+                {
+                    "object": "block",
+                    "type": "paragraph",
+                    "paragraph": {
+                        "rich_text": [{"type": "text", "text": {"content": description}}]
+                    }
+                }
+            ]
+
+        res = requests.post(f"{self.api_url}/pages", headers=self.headers, json=payload)
+        if res.status_code != 200:
+            raise Exception(f"Errore Task: {res.text}")
+            
+        return res.json()['id']
         # Per semplicità, nel create_project usiamo una ricerca ottimizzata.
         return None
 
